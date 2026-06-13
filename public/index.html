@@ -54,10 +54,11 @@
 </style>
 </head>
 <body>
+<div id="errbar" style="display:none"></div>
 <div class="wrap">
   <header>
     <h1>🐶 Pappa Pronta</h1>
-    <p>Promemoria pasti del tuo cane · build v4</p>
+    <p>Promemoria pasti del tuo cane · build v5</p>
   </header>
 
   <div class="install-banner" id="installBanner"></div>
@@ -89,9 +90,8 @@
 function showErr(msg){
   try{
     let b=document.getElementById('errbar');
-    if(!b){ b=document.createElement('div'); b.id='errbar';
-      b.style.cssText='position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:12px;font-size:13px;z-index:99999;text-align:center';
-      document.body.appendChild(b); }
+    if(!b){ b=document.createElement('div'); b.id='errbar'; document.body.appendChild(b); }
+    b.style.cssText='position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:12px;font-size:13px;z-index:99999;text-align:center;display:block';
     b.textContent='❌ '+msg;
   }catch(_){}
 }
@@ -113,8 +113,8 @@ function checkNewDay(){ const t=new Date().toDateString(); if(localStorage.getIt
 
 function render(){
   meals.sort((a,b)=>a.time.localeCompare(b.time));
-  const box=document.getElementById('meals'); box.innerHTML='';
-  document.getElementById('emptyMsg').style.display=meals.length?'none':'block';
+  const box=document.getElementById('meals'); if(!box) return; box.innerHTML='';
+  const em=document.getElementById('emptyMsg'); if(em) em.style.display=meals.length?'none':'block';
   meals.forEach(m=>{
     const d=document.createElement('div');
     d.className='meal'+(m.done?' done':'');
@@ -124,41 +124,43 @@ function render(){
     box.appendChild(d);
   });
   const dc=meals.filter(m=>m.done).length;
-  document.getElementById('progress').textContent=meals.length?`${dc}/${meals.length}`:'';
+  const pr=document.getElementById('progress'); if(pr) pr.textContent=meals.length?`${dc}/${meals.length}`:'';
   renderNext();
 }
 function renderNext(){
+  const nt=document.getElementById('nextTime'), nc=document.getElementById('nextCount');
+  if(!nt||!nc) return;
   const now=new Date(), nm=now.getHours()*60+now.getMinutes();
   const pend=meals.filter(m=>!m.done).map(m=>{const[h,i]=m.time.split(':').map(Number);return{...m,min:h*60+i};});
   const up=pend.filter(m=>m.min>=nm).sort((a,b)=>a.min-b.min);
   const tg=up[0]||pend.sort((a,b)=>a.min-b.min)[0];
-  if(!tg){ document.getElementById('nextTime').textContent='🎉'; document.getElementById('nextCount').textContent='Tutti i pasti completati!'; return; }
-  document.getElementById('nextTime').textContent=tg.time;
+  if(!tg){ nt.textContent='🎉'; nc.textContent='Tutti i pasti completati!'; return; }
+  nt.textContent=tg.time;
   let diff=tg.min-nm; if(diff<0)diff+=1440;
   const h=Math.floor(diff/60),mn=diff%60;
-  document.getElementById('nextCount').textContent=`${esc(tg.name)} — tra ${h>0?h+'h ':''}${mn}min`;
+  nc.textContent=`${esc(tg.name)} — tra ${h>0?h+'h ':''}${mn}min`;
 }
 function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-document.getElementById('meals').addEventListener('click',e=>{
+document.getElementById('meals')?.addEventListener('click',e=>{
   const t=e.target.dataset.toggle,d=e.target.dataset.del;
   if(t){const m=meals.find(x=>x.id==t);m.done=!m.done;save();render();}
   if(d){meals=meals.filter(x=>x.id!=d);save();render();}
 });
-document.getElementById('addBtn').addEventListener('click',()=>{
+document.getElementById('addBtn')?.addEventListener('click',()=>{
   const time=document.getElementById('newTime').value;
-  const name=document.getElementById('newName').value.trim()||'Pasto';
+  const name=(document.getElementById('newName').value||'').trim()||'Pasto';
   if(!time)return;
   meals.push({id:Date.now(),time,name,done:false});
   document.getElementById('newName').value=''; save(); render();
 });
-document.getElementById('resetBtn').addEventListener('click',()=>{meals.forEach(m=>m.done=false);save();render();});
+document.getElementById('resetBtn')?.addEventListener('click',()=>{meals.forEach(m=>m.done=false);save();render();});
 
 // La lista e i pulsanti sono pronti SUBITO: nulla di ciò che segue può più bloccarli
 render();
 
 // ---- Service Worker + Web Push ----
-function setStatus(t){ document.getElementById('status').textContent=t; }
+function setStatus(t){ const s=document.getElementById('status'); if(s) s.textContent=t; }
 
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').then(r=>{ swReg=r;
@@ -198,8 +200,8 @@ async function sendToServer(){
 }
 
 const notifBtn=document.getElementById('notifBtn');
-function refreshNotifUI(){ if(('Notification' in window) && Notification.permission==='granted'){ notifBtn.textContent='🔔 Notifiche attive'; notifBtn.classList.add('on'); } }
-notifBtn.addEventListener('click',async()=>{
+function refreshNotifUI(){ if(notifBtn && ('Notification' in window) && Notification.permission==='granted'){ notifBtn.textContent='🔔 Notifiche attive'; notifBtn.classList.add('on'); } }
+notifBtn?.addEventListener('click',async()=>{
   if(!('Notification' in window)){ alert('Notifiche non supportate'); return; }
   const p=await Notification.requestPermission();
   if(p==='granted'){ refreshNotifUI(); await ensureSubscribed(); }

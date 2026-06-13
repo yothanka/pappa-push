@@ -1,5 +1,5 @@
 // Pappa Pronta - Service Worker (versione push)
-const CACHE = 'pappa-push-v5';
+const CACHE = 'pappa-push-v6';
 const ASSETS = ['./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -42,7 +42,7 @@ self.addEventListener('push', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const id = e.notification.data?.id;
+  const id = e.notification.data && e.notification.data.id;
   e.waitUntil((async () => {
     const all = await clients.matchAll({ type:'window', includeUncontrolled:true });
     if (e.action === 'done' && id != null) all.forEach(c => c.postMessage({ type:'MEAL_DONE', id }));

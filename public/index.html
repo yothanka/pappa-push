@@ -57,7 +57,7 @@
 <div class="wrap">
   <header>
     <h1>🐶 Pappa Pronta</h1>
-    <p>Promemoria pasti del tuo cane</p>
+    <p>Promemoria pasti del tuo cane · build v3</p>
   </header>
 
   <div class="install-banner" id="installBanner"></div>
@@ -85,6 +85,10 @@
 </div>
 
 <script>
+// Mostra a schermo qualsiasi errore, così è facile da leggere
+window.onerror=function(m,s,l){ try{ document.getElementById('status').textContent='❌ Errore: '+m+' (riga '+l+')'; }catch(_){} };
+window.addEventListener('unhandledrejection',function(ev){ try{ document.getElementById('status').textContent='❌ Errore: '+((ev.reason&&ev.reason.message)||ev.reason); }catch(_){} });
+
 const KEY='pappa_push_meals_v1', DAYKEY='pappa_push_day_v1';
 let meals = load();
 let swReg=null, pushSub=null;

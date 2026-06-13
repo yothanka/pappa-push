@@ -1,5 +1,5 @@
 // Pappa Pronta - Service Worker (versione push)
-const CACHE = 'pappa-push-v2';
+const CACHE = 'pappa-push-v3';
 const ASSETS = ['./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -16,7 +16,12 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).catch(()=>caches.match('./index.html'))));
+  // La pagina la prendo SEMPRE dalla rete (niente copie vecchie). Cache solo come riserva offline.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(fetch(e.request).catch(() => caches.match('./index.html')));
+    return;
+  }
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
 
 // Notifica push ricevuta dal server: arriva anche ad app chiusa / schermo bloccato

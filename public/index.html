@@ -57,7 +57,7 @@
 <div class="wrap">
   <header>
     <h1>🐶 Pappa Pronta</h1>
-    <p>Promemoria pasti del tuo cane · build v3</p>
+    <p>Promemoria pasti del tuo cane · build v4</p>
   </header>
 
   <div class="install-banner" id="installBanner"></div>
@@ -85,9 +85,18 @@
 </div>
 
 <script>
-// Mostra a schermo qualsiasi errore, così è facile da leggere
-window.onerror=function(m,s,l){ try{ document.getElementById('status').textContent='❌ Errore: '+m+' (riga '+l+')'; }catch(_){} };
-window.addEventListener('unhandledrejection',function(ev){ try{ document.getElementById('status').textContent='❌ Errore: '+((ev.reason&&ev.reason.message)||ev.reason); }catch(_){} });
+// Mostra qualsiasi errore in una barra rossa in ALTO, impossibile non vederla
+function showErr(msg){
+  try{
+    let b=document.getElementById('errbar');
+    if(!b){ b=document.createElement('div'); b.id='errbar';
+      b.style.cssText='position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:12px;font-size:13px;z-index:99999;text-align:center';
+      document.body.appendChild(b); }
+    b.textContent='❌ '+msg;
+  }catch(_){}
+}
+window.onerror=function(m,s,l){ showErr(m+' (riga '+l+')'); };
+window.addEventListener('unhandledrejection',function(ev){ showErr(((ev.reason&&ev.reason.message)||ev.reason)); });
 
 const KEY='pappa_push_meals_v1', DAYKEY='pappa_push_day_v1';
 let meals = load();
@@ -145,6 +154,9 @@ document.getElementById('addBtn').addEventListener('click',()=>{
 });
 document.getElementById('resetBtn').addEventListener('click',()=>{meals.forEach(m=>m.done=false);save();render();});
 
+// La lista e i pulsanti sono pronti SUBITO: nulla di ciò che segue può più bloccarli
+render();
+
 // ---- Service Worker + Web Push ----
 function setStatus(t){ document.getElementById('status').textContent=t; }
 
@@ -154,7 +166,7 @@ if('serviceWorker' in navigator){
       if(e.data?.type==='MEAL_DONE'){ const m=meals.find(x=>x.id==e.data.id); if(m){m.done=true;save();render();} }
     });
     if(('Notification' in window) && Notification.permission==='granted') ensureSubscribed();
-  });
+  }).catch(()=>{});
 }
 
 function urlB64ToUint8(base64){
@@ -195,19 +207,20 @@ notifBtn.addEventListener('click',async()=>{
 });
 refreshNotifUI();
 
-// Install hints
-let deferred=null;
-window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferred=e;
-  const b=document.getElementById('installBanner'); b.style.display='block';
-  b.innerHTML='📲 <b>Installa l\'app</b> sulla home per le notifiche.<br><button id="ib" style="margin-top:10px;width:100%;border:none;background:#ff7e1d;color:#fff;padding:12px;border-radius:10px;font-weight:700">Installa</button>';
-  document.getElementById('ib').onclick=async()=>{ deferred.prompt(); await deferred.userChoice; deferred=null; b.style.display='none'; };
-});
-const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-const standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
-if(isIOS && !standalone){
-  const b=document.getElementById('installBanner'); b.style.display='block';
-  b.innerHTML='📲 <b>iPhone:</b> tocca <b>Condividi</b> ⬆️ poi <b>"Aggiungi a Home"</b>, apri l\'app dalla home e attiva le notifiche.';
-}
+// Install hints (protetti: non possono mai bloccare l'app)
+try{
+  let deferred=null;
+  window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferred=e;
+    const b=document.getElementById('installBanner'); b.style.display='block';
+    b.innerHTML='📲 <b>Installa l\'app</b> sulla home per le notifiche.<br><button id="ib" style="margin-top:10px;width:100%;border:none;background:#ff7e1d;color:#fff;padding:12px;border-radius:10px;font-weight:700">Installa</button>';
+    document.getElementById('ib').onclick=async()=>{ deferred.prompt(); await deferred.userChoice; deferred=null; b.style.display='none'; };
+  });
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const standalone=(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  if(isIOS && !standalone){
+    const b=document.getElementById('installBanner'); b.style.display='block';
+    b.innerHTML='📲 <b>iPhone:</b> tocca <b>Condividi</b> ⬆️ poi <b>"Aggiungi a Home"</b>, apri l\'app dalla home e attiva le notifiche.';
+  }
+}catch(_){}
 
-render();
 setInterval(()=>{ checkNewDay(); renderNext(); },30000);

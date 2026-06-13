@@ -1,5 +1,5 @@
 // Pappa Pronta - Service Worker (versione push)
-const CACHE = 'pappa-push-v3';
+const CACHE = 'pappa-push-v4';
 const ASSETS = ['./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install', e => {

@@ -87,6 +87,7 @@
 <script>
 const KEY='pappa_push_meals_v1', DAYKEY='pappa_push_day_v1';
 let meals = load();
+let swReg=null, pushSub=null;
 checkNewDay();
 
 function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||defaults(); }catch{ return defaults(); } }
@@ -141,7 +142,6 @@ document.getElementById('addBtn').addEventListener('click',()=>{
 document.getElementById('resetBtn').addEventListener('click',()=>{meals.forEach(m=>m.done=false);save();render();});
 
 // ---- Service Worker + Web Push ----
-let swReg=null, pushSub=null;
 function setStatus(t){ document.getElementById('status').textContent=t; }
 
 if('serviceWorker' in navigator){
@@ -149,7 +149,7 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.addEventListener('message',e=>{
       if(e.data?.type==='MEAL_DONE'){ const m=meals.find(x=>x.id==e.data.id); if(m){m.done=true;save();render();} }
     });
-    if(Notification.permission==='granted') ensureSubscribed();
+    if(('Notification' in window) && Notification.permission==='granted') ensureSubscribed();
   });
 }
 
@@ -169,6 +169,7 @@ async function ensureSubscribed(){
     }
     await sendToServer();
     setStatus('✅ Notifiche server attive');
+    try{ await fetch('/test',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ endpoint:pushSub.endpoint }) }); }catch{}
   }catch(e){ setStatus('⚠️ '+e.message); }
 }
 
@@ -181,7 +182,7 @@ async function sendToServer(){
 }
 
 const notifBtn=document.getElementById('notifBtn');
-function refreshNotifUI(){ if(Notification.permission==='granted'){ notifBtn.textContent='🔔 Notifiche attive'; notifBtn.classList.add('on'); } }
+function refreshNotifUI(){ if(('Notification' in window) && Notification.permission==='granted'){ notifBtn.textContent='🔔 Notifiche attive'; notifBtn.classList.add('on'); } }
 notifBtn.addEventListener('click',async()=>{
   if(!('Notification' in window)){ alert('Notifiche non supportate'); return; }
   const p=await Notification.requestPermission();

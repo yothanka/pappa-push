@@ -49,6 +49,21 @@ app.post('/unsubscribe', (req, res) => {
 
 // Endpoint di "keep-alive" per il ping anti-spegnimento
 app.get('/ping', (req, res) => res.send('pong'));
+
+// Invia una notifica di prova immediata (per confermare che tutto funziona)
+app.post('/test', async (req, res) => {
+  const ep = req.body?.endpoint;
+  const s = subs.find(x => x.subscription.endpoint === ep) || subs[subs.length - 1];
+  if (!s) return res.status(404).json({ error: 'no subscription' });
+  try {
+    await webpush.sendNotification(s.subscription, JSON.stringify({
+      title: '🐶 Pappa Pronta', body: 'Notifiche attive! Tutto funziona ✅', id: null
+    }));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.statusCode || 'send failed' });
+  }
+});
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // --- Scheduler: ogni minuto controlla se è ora di un pasto ---

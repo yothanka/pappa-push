@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#ff7e1d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pappa Pronta">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Pappa Pronta 🐶</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { overscroll-behavior-y:contain; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:linear-gradient(160deg,#fff4e6 0%,#ffe8cc 100%);
+    min-height:100vh; color:#4a3520;
+    padding:max(20px,env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom));
+    -webkit-user-select:none; user-select:none;
+  }
+  .wrap { max-width:480px; margin:0 auto; }
+  header { text-align:center; margin-bottom:20px; }
+  header h1 { font-size:26px; font-weight:800; }
+  header p { color:#9c7a52; margin-top:4px; font-size:13px; }
+  .card { background:#fff; border-radius:20px; padding:20px; margin-bottom:14px; box-shadow:0 6px 20px rgba(180,120,50,0.12); }
+  .next { text-align:center; background:linear-gradient(135deg,#ff9f43,#ff7e1d); color:#fff; }
+  .next .label { font-size:12px; opacity:.9; text-transform:uppercase; letter-spacing:1px; }
+  .next .time { font-size:46px; font-weight:800; margin:4px 0; line-height:1; }
+  .next .count { font-size:14px; opacity:.95; }
+  h2 { font-size:16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
+  h2 span { font-weight:400; color:#9c7a52; font-size:14px; }
+  .meal { display:flex; align-items:center; gap:10px; padding:14px 12px; border-radius:14px; background:#fff9f2; margin-bottom:10px; border:2px solid transparent; transition:.2s; }
+  .meal.done { background:#eaf7ea; border-color:#b8e0b8; }
+  .meal .mtime { font-size:22px; font-weight:700; width:66px; }
+  .meal .mname { flex:1; font-size:14px; color:#8a6d4a; }
+  .meal.done .mname { color:#5a8a5a; text-decoration:line-through; }
+  .meal button { border:none; background:#ff7e1d; color:#fff; padding:12px 16px; border-radius:20px; font-weight:700; font-size:13px; cursor:pointer; min-height:44px; }
+  .meal.done button { background:#6bbf6b; }
+  .meal .del { background:transparent; color:#d99; font-size:22px; padding:8px 6px; min-width:40px; }
+  .add-row { display:flex; gap:8px; margin-top:14px; }
+  .add-row input { padding:14px 12px; border:2px solid #ffe0c0; border-radius:12px; font-size:16px; background:#fff; min-height:48px; }
+  .add-row input[type=time] { flex:0 0 116px; }
+  .add-row input[type=text] { flex:1; min-width:0; }
+  .add-row button { border:none; background:#4a3520; color:#fff; padding:0 20px; border-radius:12px; font-weight:700; cursor:pointer; font-size:22px; }
+  .notif-btn { width:100%; padding:16px; border:none; border-radius:14px; background:#4a3520; color:#fff; font-weight:700; font-size:15px; cursor:pointer; margin-bottom:14px; min-height:52px; }
+  .notif-btn.on { background:#6bbf6b; }
+  .install-banner { background:#fff; border:2px dashed #ff9f43; border-radius:16px; padding:14px; margin-bottom:14px; font-size:13px; color:#8a6d4a; display:none; }
+  .install-banner b { color:#ff7e1d; }
+  .reset { text-align:center; color:#b89; font-size:13px; cursor:pointer; margin-top:10px; padding:8px; }
+  .empty { text-align:center; color:#b89; padding:16px; font-size:14px; }
+  .status { font-size:12px; color:#b89; text-align:center; margin-top:6px; min-height:16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🐶 Pappa Pronta</h1>
+    <p>Promemoria pasti del tuo cane</p>
+  </header>
+
+  <div class="install-banner" id="installBanner"></div>
+
+  <button class="notif-btn" id="notifBtn">🔔 Attiva notifiche</button>
+
+  <div class="card next">
+    <div class="label">Prossimo pasto</div>
+    <div class="time" id="nextTime">--:--</div>
+    <div class="count" id="nextCount"></div>
+  </div>
+
+  <div class="card">
+    <h2>Pasti di oggi <span id="progress"></span></h2>
+    <div id="meals"></div>
+    <div class="empty" id="emptyMsg" style="display:none">Nessun pasto. Aggiungine uno 👇</div>
+    <div class="add-row">
+      <input type="time" id="newTime" value="08:00">
+      <input type="text" id="newName" placeholder="Es. Crocchette" maxlength="24">
+      <button id="addBtn">+</button>
+    </div>
+    <div class="reset" id="resetBtn">↺ Azzera i pasti di oggi</div>
+  </div>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+const KEY='pappa_push_meals_v1', DAYKEY='pappa_push_day_v1';
+let meals = load();
+checkNewDay();
+
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||defaults(); }catch{ return defaults(); } }
+function defaults(){ return [
+  {id:1,time:'08:00',name:'Colazione',done:false},
+  {id:2,time:'19:00',name:'Cena',done:false}
+];}
+function save(){ localStorage.setItem(KEY,JSON.stringify(meals)); sendToServer(); }
+function checkNewDay(){ const t=new Date().toDateString(); if(localStorage.getItem(DAYKEY)!==t){ meals.forEach(m=>m.done=false); localStorage.setItem(DAYKEY,t); save(); } }
+
+function render(){
+  meals.sort((a,b)=>a.time.localeCompare(b.time));
+  const box=document.getElementById('meals'); box.innerHTML='';
+  document.getElementById('emptyMsg').style.display=meals.length?'none':'block';
+  meals.forEach(m=>{
+    const d=document.createElement('div');
+    d.className='meal'+(m.done?' done':'');
+    d.innerHTML=`<div class="mtime">${m.time}</div><div class="mname">${esc(m.name)}</div>
+      <button data-toggle="${m.id}">${m.done?'✓':'Segna'}</button>
+      <button class="del" data-del="${m.id}">×</button>`;
+    box.appendChild(d);
+  });
+  const dc=meals.filter(m=>m.done).length;
+  document.getElementById('progress').textContent=meals.length?`${dc}/${meals.length}`:'';
+  renderNext();
+}
+function renderNext(){
+  const now=new Date(), nm=now.getHours()*60+now.getMinutes();
+  const pend=meals.filter(m=>!m.done).map(m=>{const[h,i]=m.time.split(':').map(Number);return{...m,min:h*60+i};});
+  const up=pend.filter(m=>m.min>=nm).sort((a,b)=>a.min-b.min);
+  const tg=up[0]||pend.sort((a,b)=>a.min-b.min)[0];
+  if(!tg){ document.getElementById('nextTime').textContent='🎉'; document.getElementById('nextCount').textContent='Tutti i pasti completati!'; return; }
+  document.getElementById('nextTime').textContent=tg.time;
+  let diff=tg.min-nm; if(diff<0)diff+=1440;
+  const h=Math.floor(diff/60),mn=diff%60;
+  document.getElementById('nextCount').textContent=`${esc(tg.name)} — tra ${h>0?h+'h ':''}${mn}min`;
+}
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+document.getElementById('meals').addEventListener('click',e=>{
+  const t=e.target.dataset.toggle,d=e.target.dataset.del;
+  if(t){const m=meals.find(x=>x.id==t);m.done=!m.done;save();render();}
+  if(d){meals=meals.filter(x=>x.id!=d);save();render();}
+});
+document.getElementById('addBtn').addEventListener('click',()=>{
+  const time=document.getElementById('newTime').value;
+  const name=document.getElementById('newName').value.trim()||'Pasto';
+  if(!time)return;
+  meals.push({id:Date.now(),time,name,done:false});
+  document.getElementById('newName').value=''; save(); render();
+});
+document.getElementById('resetBtn').addEventListener('click',()=>{meals.forEach(m=>m.done=false);save();render();});
+
+// ---- Service Worker + Web Push ----
+let swReg=null, pushSub=null;
+function setStatus(t){ document.getElementById('status').textContent=t; }
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(r=>{ swReg=r;
+    navigator.serviceWorker.addEventListener('message',e=>{
+      if(e.data?.type==='MEAL_DONE'){ const m=meals.find(x=>x.id==e.data.id); if(m){m.done=true;save();render();} }
+    });
+    if(Notification.permission==='granted') ensureSubscribed();
+  });
+}
+
+function urlB64ToUint8(base64){
+  const pad='='.repeat((4-base64.length%4)%4);
+  const b=(base64+pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(b); return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+
+async function ensureSubscribed(){
+  if(!swReg) return;
+  try{
+    const key=await fetch('/vapidPublicKey').then(r=>r.text());
+    pushSub=await swReg.pushManager.getSubscription();
+    if(!pushSub){
+      pushSub=await swReg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlB64ToUint8(key) });
+    }
+    await sendToServer();
+    setStatus('✅ Notifiche server attive');
+  }catch(e){ setStatus('⚠️ '+e.message); }
+}
+
+async function sendToServer(){
+  if(!pushSub) return;
+  try{
+    await fetch('/subscribe',{ method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ subscription:pushSub, meals, tzOffset:new Date().getTimezoneOffset() }) });
+  }catch(e){ /* offline: ok, riproverà alla riapertura */ }
+}
+
+const notifBtn=document.getElementById('notifBtn');
+function refreshNotifUI(){ if(Notification.permission==='granted'){ notifBtn.textContent='🔔 Notifiche attive'; notifBtn.classList.add('on'); } }
+notifBtn.addEventListener('click',async()=>{
+  if(!('Notification' in window)){ alert('Notifiche non supportate'); return; }
+  const p=await Notification.requestPermission();
+  if(p==='granted'){ refreshNotifUI(); await ensureSubscribed(); }
+  else alert('Permesso negato. Attivalo dalle impostazioni del telefono.');
+});
+refreshNotifUI();
+
+// Install hints
+let deferred=null;
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferred=e;
+  const b=document.getElementById('installBanner'); b.style.display='block';
+  b.innerHTML='📲 <b>Installa l\'app</b> sulla home per le notifiche.<br><button id="ib" style="margin-top:10px;width:100%;border:none;background:#ff7e1d;color:#fff;padding:12px;border-radius:10px;font-weight:700">Installa</button>';
+  document.getElementById('ib').onclick=async()=>{ deferred.prompt(); await deferred.userChoice; deferred=null; b.style.display='none'; };
+});
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+const standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+if(isIOS && !standalone){
+  const b=document.getElementById('installBanner'); b.style.display='block';
+  b.innerHTML='📲 <b>iPhone:</b> tocca <b>Condividi</b> ⬆️ poi <b>"Aggiungi a Home"</b>, apri l\'app dalla home e attiva le notifiche.';
+}
+
+render();
+setInterval(()=>{ checkNewDay(); renderNext(); },30000);
